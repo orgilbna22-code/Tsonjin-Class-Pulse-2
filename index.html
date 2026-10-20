@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f8f8f2">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <meta name="description" content="Tsonjin Class Pulse — Өдөр бүрийн жижиг ахиц, хамтдаа бүтээх том өөрчлөлт.">
   <title>Tsonjin Class Pulse — Хамтдаа өсөе</title>
   <link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHJlY3Qgd2lkdGg9IjQ4IiBoZWlnaHQ9IjQ4IiByeD0iMTQiIGZpbGw9IiMyMDNjMzEiLz48ZyBzdHJva2U9IiNmNGYzZTgiIHN0cm9rZS13aWR0aD0iNCI+PHBhdGggZD0iTTI0IDh2MzJNOCAyNGgzMk0xMyAxM2wyMiAyMk0xMyAzNWwyMi0yMiIvPjwvZz48L3N2Zz4K" type="image/svg+xml">
@@ -187,6 +189,8 @@ body.dawn{background:radial-gradient(120% 62% at 50% -12%,#fff4e0,rgba(255,244,2
 @media(prefers-reduced-motion:reduce){.ripple,.mote{display:none}}
 .reduced-motion .stage{transform:none!important}
 .reduced-motion .ripple,.reduced-motion .mote{display:none}
+/* the scene rests while it is offscreen, the app is open, or the tab is hidden */
+.hero-idle .stage *,.hero-idle .stage *:before,.hero-idle .stage *:after{animation-play-state:paused!important}
 </style>
 <style id="pulse-identity">
 /* ---- Нэвтрэлт, таних тэмдэг, ээлж, шүүлтүүр ---- */
@@ -617,17 +621,22 @@ const reducedNow=()=>document.documentElement.classList.contains('reduced-motion
   const hero=$('.hero'),stage=$('#heroStage');
   if(!hero||!stage)return;
   let px=0,py=0,rx=0,ry=0,dolly=0;
+  let heroTop=0,heroHeight=1,scrollY=window.scrollY;
+  const measure=()=>{const box=hero.getBoundingClientRect();heroTop=box.top+window.scrollY;heroHeight=Math.max(1,box.height);};
+  measure();
+  if('ResizeObserver' in window)new ResizeObserver(measure).observe(hero);
+  window.addEventListener('resize',measure,{passive:true});
+  window.addEventListener('scroll',()=>{scrollY=window.scrollY;},{passive:true});
   hero.addEventListener('pointermove',e=>{if(e.pointerType==='touch'||reducedNow())return;px=e.clientX/innerWidth-.5;py=e.clientY/innerHeight-.5;},{passive:true});
   hero.addEventListener('pointerleave',()=>{px=0;py=0;});
   function frame(now){
     requestAnimationFrame(frame);
     if(reducedNow()){if(stage.style.transform){stage.style.transform='';rx=ry=dolly=0;}return;}
-    const box=hero.getBoundingClientRect();
-    if(box.bottom<-60||$('#landing').hidden)return;
+    if(document.documentElement.classList.contains('hero-idle'))return;
+    const progress=Math.min(1,Math.max(0,(scrollY-heroTop)/heroHeight));
     const t=now/1000;
     const idleX=Math.sin(t*.19)*.42+Math.sin(t*.071)*.24;
     const idleY=Math.cos(t*.123)*.3;
-    const progress=Math.min(1,Math.max(0,-box.top/Math.max(1,box.height)));
     dolly+=(progress*70-dolly)*.07;
     rx+=(-py*3.1+idleY*.55-rx)*.05;
     ry+=(px*5.4+idleX*1.15-ry)*.05;
@@ -683,7 +692,18 @@ const reducedNow=()=>document.documentElement.classList.contains('reduced-motion
     held=null;
   },{passive:true});
 })();
-document.addEventListener('visibilitychange',()=>{document.querySelectorAll('.bird,.bird>*').forEach(el=>el.style.animationPlayState=document.hidden?'paused':'');});
+/* the diorama only burns frames while it is actually on the lens */
+(function sceneGate(){
+  const root=document.documentElement,hero=$('.hero');
+  if(!hero)return;
+  let onscreen=true;
+  const apply=()=>root.classList.toggle('hero-idle',!onscreen||document.hidden);
+  document.addEventListener('visibilitychange',apply);
+  if('IntersectionObserver' in window){
+    const io=new IntersectionObserver(entries=>{onscreen=entries[0].isIntersecting;apply();},{rootMargin:'0px 0px 60px 0px'});
+    io.observe(hero);
+  }
+})();
 $('#motionToggle').addEventListener('click',()=>{motion=document.documentElement.classList.contains('reduced-motion')?'full':'reduced';applyMotion();if(matchMedia('(prefers-reduced-motion: reduce)').matches&&motion==='full')toast('Таны төхөөрөмжийн хөдөлгөөн багасгах тохиргоог дагаж байна.');});
 $('.dialog-close').addEventListener('click',closeDialog);
 $('#dialog').addEventListener('click',e=>{if(e.target===$('#dialog')){const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)closeDialog();}});
