@@ -735,7 +735,8 @@ async function registerAccount(data){
   if(!data.password||data.password.length<4)throw Error('Нууц үг дор хаяж 4 тэмдэгт байх ёстой.');
   if(data.password!==data.confirm)throw Error('Баталгаажуулсан нууц үг таарахгүй байна.');
   const accounts=readAccounts();
-  if(accounts[key])throw Error((isTeacher?'"'+label+'"':'Энэ сурагч')+' бүртгэлтэй байна. «Нэвтрэх»-ээс үргэлжлүүлнэ үү.');
+  const taken=Object.values(accounts).some(a=>isTeacher?slug(a.label||'')===slug(label):a.studentId===studentId);
+  if(accounts[key]||taken)throw Error((isTeacher?'"'+label+'"':'Энэ сурагч')+' бүртгэлтэй байна. «Нэвтрэх»-ээс үргэлжлүүлнэ үү.');
   const salt=randomSalt();
   accounts[key]={key,label,role:isTeacher?'teacher':'student',studentId,email:(data.email||'').trim().toLowerCase(),salt,hash:await hashSecret(salt,data.password),createdAt:new Date().toISOString()};
   if(!writeAccounts(accounts))throw Error('Хөтөчийн хадгалах сан боломжгүй.');
